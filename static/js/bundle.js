@@ -1,6 +1,119 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+module.exports = {
+  addListener: function(el) {
+    el.addEventListener('click', downloadSlides, false);
+  }
+};
+
+
+var parts = [{
+  name: 'head.html',
+  path: ''
+}, {
+  name: 'tail.html',
+  path: ''
+}, {
+  name: 'default.css',
+  path: 'css'
+}, {
+  name: 'zenburn.css',
+  path: 'lib/css'
+}, {
+  name: 'head.min.js',
+  path: 'lib/js'
+}, {
+  name: 'reveal.js',
+  path: 'js'
+}, {
+  name: 'main.css',
+  path: 'css'
+}, {
+  name: 'zenburn.css',
+  path: 'css'
+}, {
+  name: 'print.css',
+  path: 'css'
+}, {
+  name: 'classList.js',
+  path: 'lib/js'
+}, {
+  name: 'highlight.js',
+  path: 'lib/js'
+}];
+
+function downloadSlides() {
+
+  var content = [];
+  var url = location.origin + '/download/';
+  var l = parts.length;
+  var folders = parts.map(function(p) {
+    return p.path;
+  });
+  parts.map(function(p) {
+    return url + p.name;
+  }).forEach(function(url, idx) {
+    requestPart(url)
+      .then(function (resp) {
+        content[idx] = resp;
+        if (--l === 0) {
+          createZip(content, folders);
+        }
+      });
+  });
+}
+
+function createZip(content, folders) {
+  var slides = '<div class="reveal"><div class="slides">' +
+                document.querySelector('.slides').innerHTML +
+                '</div></div>';
+  var index = content.splice(0,2);
+  var zip = new JSZip();
+
+  index.splice(1, 0, slides);
+  index = index.join('');
+  zip.file('index.html', index);
+
+  for (var i = 2; i < folders.length; i++) {
+    var folder = zip.folder(folders[i]);
+    folder.file(parts[i].name, content[i - 2]);
+  }
+
+  content = zip.generate({type: 'blob'});
+  var link = document.querySelector('.js-handler--download-ready');
+  link.href = window.URL.createObjectURL(content);
+  link.innerHTML = 'Presentation ready. Click here to download'
+  link.download = 'YourPresentation.zip';
+}
+
+function requestPart(url) {
+
+  var request = new XMLHttpRequest();
+  var deferred = Q.defer();
+
+  request.open("GET", url, true);
+  request.onload = onload;
+  request.onerror = onerror;
+  request.send();
+
+  function onload() {
+    if (request.status === 200) {
+      deferred.resolve(request.responseText);
+    } else {
+      deferred.reject(new Error("Status code: " + request.status));
+    }
+  }
+
+  function onerror() {
+    deferred.reject(new Error("Request to " + url + " failed"));
+  }
+
+  return deferred.promise;
+}
+
+},{}],2:[function(require,module,exports){
 slide = require('./slide-controller');
 menu = require('./menu-controller');
+download = require('./kreator-download');
 
 module.exports = function kreator () {
 
@@ -31,22 +144,32 @@ module.exports = function kreator () {
   menu.addListeners({
     upload: document.querySelector('.js-handler--upload'),
     heading: document.querySelector('.js-handler--headings'),
-    color: document.querySelector('.js-handler--color')
+    color: document.querySelector('.js-handler--color'),
+    styleButtons: document.querySelectorAll('.js-handler--style-button'),
+    alignment: document.querySelector('.js-handler--alignment'),
+    codeBlock: document.querySelector('.js-handler--code-block')
   });
+
+  download.addListener(document.querySelector('.js-handler--download'));
 
 };
 
-},{"./menu-controller":3,"./slide-controller":4}],2:[function(require,module,exports){
+},{"./kreator-download":1,"./menu-controller":4,"./slide-controller":5}],3:[function(require,module,exports){
 var kreator = require('./kreator.js');
 
 kreator();
 
-},{"./kreator.js":1}],3:[function(require,module,exports){
+},{"./kreator.js":2}],4:[function(require,module,exports){
 module.exports = {
   addListeners: function(handler) {
     handler.upload.addEventListener('submit', uploadSlides, false);
     handler.heading.addEventListener('change', setHeading, false);
+    handler.alignment.addEventListener('change', textAlignment, false);
     handler.color.addEventListener('change', setColor, false);
+    handler.codeBlock.addEventListener('click', createCodeBlock, false);
+    _.each(handler.styleButtons, function (el) {
+      el.addEventListener('click', setFontStyle, false);
+    });
   }
 };
 
@@ -61,21 +184,33 @@ function uploadSlides(e) {
     var reader = new FileReader();
 
     reader.onload = (function(file) {
-      return parseFile;
+      return parseFile.bind(this, file.type);
     })(file);
 
-    reader.readAsText(file, 'utf8');
+    if (file.type.match('text/html'))
+      reader.readAsText(file, 'utf8');
+    else
+      reader.readAsDataURL(file);
   } else {
     alert('File reading not supported');
   }
 }
 
 /*
- * Should parse the file and extract the slide content
+ * Receives the uploaded file
+ * Handle text/html and images/* differently
  * */
-function parseFile(e) {
+function parseFile(fileType, e) {
   var content = e.target.result;
-  appendContent(content);
+  if (fileType.match('text/html')) {
+    var dummy = document.createElement('div');
+    dummy.innerHTML = content;
+    appendContent(dummy.querySelector('.slides').innerHTML);
+  } else {
+    var img = new Image();
+    img.src = e.target.result;
+    document.querySelector('.present').appendChild(img); // FIXME
+  }
 }
 
 /* Appends the parsed content to the page
@@ -88,6 +223,33 @@ function appendContent(content) {
   Reveal.toggleOverview();
 }
 
+function textAlignment() {
+  var property = 'display:block;text-align:' + this.value;
+  replaceSelectionWithHtml('<span style="'+property+'">' + getSelectionHtml() + '</span>');
+}
+
+function setFontStyle() {
+  var value = {
+    b: 'font-weight: bold',
+    u: 'text-decoration: underline',
+    i: 'font-style: italic'
+  };
+  var property = value[this.innerHTML.toLowerCase()];
+  replaceSelectionWithHtml('<span style="'+property+'">' + getSelectionHtml() + '</span>');
+}
+
+/*
+ * Wraps selected text
+ * in a <pre><code> block
+ * */
+function createCodeBlock() {
+  var selectedHtml = getSelectionHtml();
+  var language = 'javascript';
+  var code = hljs.highlight(language, selectedHtml).value;
+  code = '<pre><code>' + code + '</code></pre>';
+  replaceSelectionWithHtml(code);
+}
+
 /*
  * Set the heading on the current selection
  * */
@@ -96,7 +258,6 @@ function setHeading() {
 }
 
 function setColor() {
-  console.log(this.value);
   replaceSelectionWithHtml('<span style="color:'+this.value+'">' + getSelectionHtml() + '</span>');
 }
 
@@ -138,7 +299,7 @@ function replaceSelectionWithHtml(html) {
     }
 }
 
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 var addListeners = function (addDown, addRight) {
 	// js-handler--add-slide-down
 	// js-handler--add-slide-right
@@ -189,9 +350,10 @@ var slidesController = {
   },
   newSlide: function() {
     var slide = document.createElement('section');
-    slide.innerHTML = '<h2>Add your content here</h2>';
+    slide.innerHTML = '<h3>Add your content here</h3>';
+    slide.setAttribute('contentEditable', true);
     return slide;
   }
 };
 
-},{}]},{},[2])
+},{}]},{},[3])

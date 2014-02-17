@@ -9,6 +9,12 @@ html(lang="en")
   body
     .navbar.container
       ul
+        li.menu-item--group
+          button.js-handler--style-button B
+          button.js-handler--style-button I
+          button.js-handler--style-button U
+        li.menu-item
+          button.js-handler--code-block CodeBlock
         li.menu-item
           form.js-handler--upload(action="")
             input(type='file', required)
@@ -21,6 +27,15 @@ html(lang="en")
             option(value="60px") 60px
         li.menu-item
           input(type="color", class="js-handler--color")
+        li.menu-item
+           select(name="text-alignment", class="js-handler--alignment")
+             option(value="none") Alignment
+             option(value="left") Left
+             option(value="center") Center
+             option(value="right") Right
+        li.menu-item
+          button.js-handler--download Create zip
+          a.js-handler--download-ready 
 
     block content
     block scripts
