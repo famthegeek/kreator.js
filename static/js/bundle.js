@@ -68,9 +68,9 @@ function createZip(content, folders) {
                 '</div></div>';
   var index = content.splice(0,2);
   var zip = new JSZip();
-
   index.splice(1, 0, slides);
   index = index.join('');
+  index.replace(/<title>.*<\/title>/g, '<title>' + App.title + '</title>');
   zip.file('index.html', index);
 
   for (var i = 2; i < folders.length; i++) {
@@ -114,8 +114,15 @@ function requestPart(url) {
 slide = require('./slide-controller');
 menu = require('./menu-controller');
 download = require('./kreator-download');
+sidemenu = require('./sidemenu-controller');
 
 module.exports = function kreator () {
+
+  window.App = {
+    title: 'Kreator.js',
+    author: 'Andrei Oprea',
+    theme: 'default'
+  }
 
 	// Full list of configuration options available here:
 	// https://github.com/hakimel/reveal.js#configuration
@@ -146,15 +153,20 @@ module.exports = function kreator () {
     heading: document.querySelector('.js-handler--headings'),
     color: document.querySelector('.js-handler--color'),
     styleButtons: document.querySelectorAll('.js-handler--style-button'),
-    alignment: document.querySelector('.js-handler--alignment'),
-    codeBlock: document.querySelector('.js-handler--code-block')
+    alignment: document.querySelectorAll('.js-handler--align'),
+    codeBlock: document.querySelector('.js-handler--code-block'),
+    overview: document.querySelectorAll('.js-handler--overview')
+  });
+
+  sidemenu.addListeners({
+    presentationTitle: document.querySelector('.js-handler--presentation-name')
   });
 
   download.addListener(document.querySelector('.js-handler--download'));
 
 };
 
-},{"./kreator-download":1,"./menu-controller":4,"./slide-controller":5}],3:[function(require,module,exports){
+},{"./kreator-download":1,"./menu-controller":4,"./sidemenu-controller":5,"./slide-controller":6}],3:[function(require,module,exports){
 var kreator = require('./kreator.js');
 
 kreator();
@@ -164,14 +176,40 @@ module.exports = {
   addListeners: function(handler) {
     handler.upload.addEventListener('submit', uploadSlides, false);
     handler.heading.addEventListener('change', setHeading, false);
-    handler.alignment.addEventListener('change', textAlignment, false);
     handler.color.addEventListener('change', setColor, false);
     handler.codeBlock.addEventListener('click', createCodeBlock, false);
+    _.each(handler.alignment, function(el) {
+      el.addEventListener('click', textAlignment, false);
+    });
+    _.each(handler.overview, function(el) {
+      el.addEventListener('click', function() {
+        toggleMessage();
+        toggleMenu();
+        Reveal.toggleOverview();
+      }, false);
+    });
     _.each(handler.styleButtons, function (el) {
       el.addEventListener('click', setFontStyle, false);
     });
   }
 };
+
+function toggleMenu() {
+  toggle('#topmenu');
+}
+
+function toggleMessage() {
+  toggle('#message');
+}
+
+function toggle(sel) {
+  var elem = document.querySelector(sel);
+  if(elem.classList.contains('hidden')) {
+    elem.classList.remove('hidden');
+  } else {
+    elem.classList.add('hidden');
+  }
+}
 
 /*
  * Handle form submit events
@@ -224,7 +262,8 @@ function appendContent(content) {
 }
 
 function textAlignment() {
-  var property = 'display:block;text-align:' + this.value;
+  console.log('here')
+  var property = 'display:block;text-align:' + this.getAttribute('data-align');
   replaceSelectionWithHtml('<span style="'+property+'">' + getSelectionHtml() + '</span>');
 }
 
@@ -300,6 +339,25 @@ function replaceSelectionWithHtml(html) {
 }
 
 },{}],5:[function(require,module,exports){
+module.exports = {
+  addListeners: function(handler) {
+    handler.presentationTitle.addEventListener('keyup', setPresentationTitle, false);
+  }
+}
+
+function setPresentationTitle() {
+  var value = this.value;
+  if (window._timeout) {
+    clearInterval(window._timeout);
+    window._timeout = 0;
+  }
+  window._timeout = setTimeout(function() {
+    document.title = value;
+    App.title = value;
+  }, 300);
+}
+
+},{}],6:[function(require,module,exports){
 var addListeners = function (addDown, addRight) {
 	// js-handler--add-slide-down
 	// js-handler--add-slide-right

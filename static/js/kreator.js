@@ -1,8 +1,15 @@
 slide = require('./slide-controller');
 menu = require('./menu-controller');
 download = require('./kreator-download');
+sidemenu = require('./sidemenu-controller');
 
 module.exports = function kreator () {
+
+  window.App = {
+    title: 'Kreator.js',
+    author: 'Andrei Oprea',
+    theme: 'default'
+  }
 
 	// Full list of configuration options available here:
 	// https://github.com/hakimel/reveal.js#configuration
@@ -33,8 +40,13 @@ module.exports = function kreator () {
     heading: document.querySelector('.js-handler--headings'),
     color: document.querySelector('.js-handler--color'),
     styleButtons: document.querySelectorAll('.js-handler--style-button'),
-    alignment: document.querySelector('.js-handler--alignment'),
-    codeBlock: document.querySelector('.js-handler--code-block')
+    alignment: document.querySelectorAll('.js-handler--align'),
+    codeBlock: document.querySelector('.js-handler--code-block'),
+    overview: document.querySelectorAll('.js-handler--overview')
+  });
+
+  sidemenu.addListeners({
+    presentationTitle: document.querySelector('.js-handler--presentation-name')
   });
 
   download.addListener(document.querySelector('.js-handler--download'));
